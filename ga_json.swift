@@ -154,28 +154,27 @@ func makeEventGroup(name: String, keyedRows: [[String: String]]) throws -> Event
 
 // MARK: - Reader
 
-print("Reading")
+print("Reading started")
+var eventGroups: [EventGroup] = []
 
-let contents = """
-name,screen_name,event_label,params1,params2
-screen1,screen1,,,
-screen1_event1,screen1,event1,string,
-screen2,screen2,,,
-screen2_event2,screen2,event2,,int
-"""
-
-//let url = URL(fileURLWithPath: "ga.csv")
-//let csvData = try Data(contentsOf: url)
-//let cvsStr = String(data: csvData, encoding: .utf8)!
-
-print("Decoding")
-
-let csv = CSwiftV(with: contents)
-let keyedRows = csv.keyedRows
-let eventGroup = try makeEventGroup(name: "money", keyedRows: keyedRows)
+let directory = "ga"
+let allCsvPaths = try FileManager.default.contentsOfDirectory(atPath: directory)
+for path in allCsvPaths {
+    print("Reading: \(path)")
+    let url = URL(fileURLWithPath: "\(directory)/\(path)")
+    let csvData = try Data(contentsOf: url)
+    let csvStr = String(data: csvData, encoding: .utf8)!
+    
+    print("Decoding: \(path)")
+    let csv = CSwiftV(with: csvStr)
+    let keyedRows = csv.keyedRows
+    let name = path.replacingOccurrences(of: ".csv", with: "")
+    let eventGroup = try makeEventGroup(name: name, keyedRows: keyedRows)
+    eventGroups.append(eventGroup)
+}
 
 print("Generating")
 
-let jsonData = try JSONEncoder().encode(eventGroup)
+let jsonData = try JSONEncoder().encode(eventGroups)
 let jsonStr = String(data: jsonData, encoding: .utf8)!
 try jsonStr.write(toFile: "analytics.json", atomically: true, encoding: .utf8)
