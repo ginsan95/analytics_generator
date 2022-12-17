@@ -104,10 +104,11 @@ struct Event: Encodable {
 
 struct EventContent: Encodable {
     let name: String
-    let value: String
+    let value: String?
+    let values: [String]?
 }
 
-let paramValues: Set<String> = ["string", "int", "double"]
+let paramValues: Set<String> = ["string", "int", "double", "boolean"]
 
 func makeEventGroup(name: String, keyedRows: [[String: String]]) throws -> EventGroup {
     var screenViews: [Event] = []
@@ -124,11 +125,16 @@ func makeEventGroup(name: String, keyedRows: [[String: String]]) throws -> Event
         var content: [EventContent] = []
         var parameters: [EventContent] = []
         for (name, value) in row {
-            let eventContent = EventContent(name: name, value: value)
             if paramValues.contains(value) {
-                parameters.append(eventContent)
+                parameters.append(EventContent(name: name, value: value, values: nil))
+            } else if value.hasPrefix("\""), value.hasSuffix("\"") {
+                var myValue = value
+                myValue.removeFirst() // Remove the "".
+                myValue.removeLast()
+                let values = myValue.components(separatedBy: ",")
+                parameters.append(EventContent(name: name, value: nil, values: values))
             } else {
-                content.append(eventContent)
+                content.append(EventContent(name: name, value: value, values: nil))
             }
         }
         
@@ -160,6 +166,7 @@ var eventGroups: [EventGroup] = []
 let directory = "ga"
 let allCsvPaths = try FileManager.default.contentsOfDirectory(atPath: directory)
 for path in allCsvPaths {
+    guard path.lowercased().hasSuffix(".csv") else { continue }
     print("Reading: \(path)")
     let url = URL(fileURLWithPath: "\(directory)/\(path)")
     let csvData = try Data(contentsOf: url)
@@ -172,6 +179,14 @@ for path in allCsvPaths {
     let eventGroup = try makeEventGroup(name: name, keyedRows: keyedRows)
     eventGroups.append(eventGroup)
 }
+
+//let contents = """
+//name,screen_name,event_label,params1,params2
+//screen1,screen1,,,
+//screen1_event1,screen1,event1,string,
+//screen2,screen2,,,
+//screen2_event2,screen2,event2,,"a,b,c"
+//"""
 
 print("Generating")
 
